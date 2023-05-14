@@ -96,8 +96,8 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
   
   //创建栈记录遍历节点的路径指针
-  auto stack_path_nodes = std::make_unique<std::stack<std::shared_ptr<TrieNode>>>(); 
-  auto stack_path_char = std::make_unique<std::stack<char>>();
+  // auto stack_path_nodes = std::make_unique<std::stack<std::shared_ptr<TrieNode>>>(); 
+  // auto stack_path_char = std::make_unique<std::stack<char>>();
   //构建新的Trie
   std::shared_ptr<TrieNode> new_root = std::shared_ptr<TrieNode>(root_->Clone());
   std::shared_ptr<Trie> new_trie = std::make_shared<Trie>();
@@ -105,7 +105,7 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   
   //遍历到最后一级目录
   auto node_cur = new_root;
-  stack_path_nodes->push(node_cur);//路径节点指针压栈
+  // stack_path_nodes->push(node_cur);//路径节点指针压栈
   for( uint64_t i=0; i<key.size()-1; i++){
     char key_cur = key[i];
     auto  it = node_cur->children_.find(key_cur);
@@ -117,8 +117,8 @@ auto Trie::Remove(std::string_view key) const -> Trie {
     std::shared_ptr<TrieNode> new_node = std::shared_ptr<TrieNode>(it->second->Clone());
     node_cur->children_[key_cur] = new_node;
     node_cur = new_node;
-     stack_path_char->push(key_cur);//路径字符压栈
-    stack_path_nodes->push(node_cur);//路径节点指针压栈
+    // stack_path_char->push(key_cur);//路径字符压栈
+    // stack_path_nodes->push(node_cur);//路径节点指针压栈
    
   }
 
@@ -133,18 +133,18 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   //把带value的节点转化为不带value 的节点
   std::shared_ptr<TrieNode> new_node = std::make_shared<TrieNode>(it->second->children_);
   node_cur->children_[last_char] = new_node;
-  stack_path_char->push(last_char);//路径字符压栈
-  stack_path_nodes->push(new_node);//路径节点指针压栈
-  //栈回溯，删除没有值和孩子的节点
-  auto this_node = stack_path_nodes->top();
-  stack_path_nodes->pop();
-  while (!stack_path_nodes->empty() && this_node->children_.empty() && !this_node->is_value_node_) {
-    auto this_c = stack_path_char->top();
-    stack_path_char->pop();
-    auto parent_node = stack_path_nodes->top();
-    stack_path_nodes->pop();
-    parent_node->children_.erase(this_c);
-  }
+  // stack_path_char->push(last_char);//路径字符压栈
+  // stack_path_nodes->push(new_node);//路径节点指针压栈
+  // //栈回溯，删除没有值和孩子的节点
+  // auto this_node = stack_path_nodes->top();
+  // stack_path_nodes->pop();
+  // while (!stack_path_nodes->empty() && this_node->children_.empty() && !this_node->is_value_node_) {
+  //   auto this_c = stack_path_char->top();
+  //   stack_path_char->pop();
+  //   auto parent_node = stack_path_nodes->top();
+  //   stack_path_nodes->pop();
+  //   parent_node->children_.erase(this_c);
+  // }
   return *new_trie;
 }
 
