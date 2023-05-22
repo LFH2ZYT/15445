@@ -11,9 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/buffer_pool_manager.h"
+#include <iostream>
 
 #include "common/exception.h"
 #include "common/macros.h"
+#include "storage/page/page.h"
 #include "storage/page/page_guard.h"
 
 namespace bustub {
@@ -22,9 +24,7 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
                                      LogManager *log_manager)
     : pool_size_(pool_size), disk_manager_(disk_manager), log_manager_(log_manager) {
   // TODO(students): remove this line after you have implemented the buffer pool manager
-  throw NotImplementedException(
-      "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
-      "exception line in `buffer_pool_manager.cpp`.");
+
 
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
@@ -38,21 +38,124 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
 
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
-auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * { return nullptr; }
+auto BufferPoolManager::NewPage( page_id_t *page_id) -> Page * { 
+   
+   frame_id_t new_frame_id;
+   if (!free_list_.empty()) {
+    new_frame_id = free_list_.front();
+    std::cout<<"NewPage  free_list_";
+    free_list_.pop_front();
+   }else if (replacer_->Evict(&new_frame_id)) {
+      if(pages_[new_frame_id].IsDirty()){
+        disk_manager_->WritePage(pages_[new_frame_id].GetPageId(), pages_[new_frame_id].GetData());
+        pages_[new_frame_id].is_dirty_ = false;
+      }
+      page_table_.erase(pages_[new_frame_id].page_id_);
+      pages_[new_frame_id].ResetMemory();
+      std::cout<<"NewPage  ResetMemory";
+   }else{
+    std::cout<<"NewPage  nullptr"<<std::endl;
+    page_id = nullptr;
+    return nullptr;
+   }
+   
+   *page_id = AllocatePage();
+   std::cout<<"  Page_id:  "<<*page_id<<"   frame_id:"<<new_frame_id<<std::endl;
+    page_table_[*page_id] = new_frame_id;
+    pages_[new_frame_id].page_id_ = *page_id;
+    pages_[new_frame_id].pin_count_++; // pin count++
+    replacer_->RecordAccess(new_frame_id);// 相当于第一次访问当前页
+    replacer_->SetEvictable(new_frame_id, false); // 不能被替换
+    // 不知道是否要解除当前进程的pin
+
+    return &pages_[new_frame_id];
+}
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-  return nullptr;
+  auto it = page_table_.find(page_id);
+  frame_id_t new_frame_id;
+  if (it == page_table_.end()) {
+    if (!free_list_.empty()) {
+      new_frame_id = free_list_.front();
+      free_list_.pop_front();
+      std::cout<<"FetchPage Page_id:"<<new_frame_id<<" free_list_"<<std::endl;
+    }else if (replacer_->Evict(&new_frame_id)) {
+      if(pages_[new_frame_id].IsDirty()){
+        disk_manager_->WritePage(pages_[new_frame_id].GetPageId(), pages_[new_frame_id].GetData());
+        pages_[new_frame_id].is_dirty_ = false;
+      }
+      pages_[new_frame_id].ResetMemory();
+      page_table_.erase(pages_[new_frame_id].page_id_);
+      std::cout<<"FetchPage ResetMemory";
+    }else {
+      std::cout<<"FetchPage Page_id:"<<page_id<<"nullptr"<<std::endl;
+      return nullptr;
+    }
+    page_table_[page_id] = new_frame_id;
+    std::cout<<"Page_id:"<<page_id<<"   frame_id:"<<new_frame_id<<std::endl;
+    pages_[new_frame_id].page_id_ = page_id;
+    disk_manager_->ReadPage(page_id, pages_[new_frame_id].data_);
+  }else {
+    new_frame_id = it->second; 
+  }
+  replacer_->RecordAccess(new_frame_id);// 相当于第一次访问当前页
+  replacer_->SetEvictable(new_frame_id, false); // 不能被替换
+  pages_[new_frame_id].pin_count_++;  // pin count++
+  return &pages_[new_frame_id];
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  return false;
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end() || pages_[it->second].GetPinCount() == 0) {
+    return false;
+  }
+  if(is_dirty){
+    pages_[it->second].is_dirty_ = true;
+  } 
+  pages_[it->second].pin_count_--;
+  if(pages_[it->second].GetPinCount() == 0){
+    replacer_->SetEvictable(it->second, true);
+  }
+  return true;
 }
 
-auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool { return false; }
+auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end()) {
+    return false;
+  }
+  if (pages_[it->second].is_dirty_) {
+    pages_[it->second].is_dirty_ = false;
+    disk_manager_->WritePage(pages_[it->second].GetPageId(), pages_[it->second].GetData());
+  }
+  return true;
+}
 
-void BufferPoolManager::FlushAllPages() {}
+void BufferPoolManager::FlushAllPages() {
+  for(auto it : page_table_){
+    if(pages_[it.second].is_dirty_){
+      pages_[it.second].is_dirty_ = false;
+      disk_manager_->WritePage(pages_[it.second].GetPageId(), pages_[it.second].GetData());
+    }
+  }
+}
 
-auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { return false; }
+auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
+  auto it = page_table_.find(page_id);
+  if (it == page_table_.end() || pages_[it->second].GetPinCount() != 0 ) {
+    return false;
+  }
+  replacer_->Remove(it->second);
+  if(pages_[it->second].is_dirty_){
+    pages_[it->second].is_dirty_ = false;
+    disk_manager_->WritePage(pages_[it->second].GetPageId(), pages_[it->second].GetData());
+  }
+  pages_[it->second].ResetMemory(); // reset memory
+  free_list_.push_back(it->second);
+  page_table_.erase(page_id);
+  DeallocatePage(page_id);
+  return true;
+}
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
