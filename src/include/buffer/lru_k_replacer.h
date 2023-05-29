@@ -27,7 +27,7 @@ namespace bustub {
 enum class AccessType { Unknown = 0, Get, Scan };
 
 class LRUKNode {
-  public:
+ public:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
@@ -35,8 +35,8 @@ class LRUKNode {
   frame_id_t fid_;
   size_t min_history_size_;
   bool is_evictable_{false};
-  
-  bool over_k_ {false};
+
+  bool over_k_{false};
 };
 
 /**
@@ -153,7 +153,7 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]]  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
   size_t current_timestamp_{0};
   size_t curr_size_{0};
   size_t evictable_size_{0};
@@ -164,7 +164,6 @@ class LRUKReplacer {
   std::list<LRUKNode> over_k_nodes_;
   std::list<LRUKNode> less_k_nodes_;
   std::unordered_map<frame_id_t, std::list<LRUKNode>::iterator> hash_cache_;
-  
 };
 
 }  // namespace bustub

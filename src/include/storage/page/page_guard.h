@@ -31,7 +31,7 @@ class BasicPageGuard {
    *
    * @brief Drop a page guard
    *
-   * Dropping a page guard should clear all contents
+   * Drclear aopping a page guard should ll contents
    * (so that the page guard is no longer useful), and
    * it should tell the BPM that we are done using this page,
    * per the specification in the writeup.

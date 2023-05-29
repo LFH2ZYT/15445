@@ -19,7 +19,7 @@ TEST(TrieDebugger, TestCase) {
   std::mt19937_64 gen(2333);
   std::uniform_int_distribution<uint32_t> dis(0, 100);
 
-   auto trie = Trie();
+  auto trie = Trie();
   trie = trie.Put<uint32_t>("65", 25);
   trie = trie.Put<uint32_t>("61", 65);
   trie = trie.Put<uint32_t>("82", 84);
